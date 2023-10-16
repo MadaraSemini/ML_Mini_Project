@@ -44,12 +44,11 @@ x_valid ={}
 y_valid ={}
 x_test = {}
 
-
+df_t = train_df
+df_v = valid_df
 
 for label in labels:
   scaler = RobustScaler()
-  df_t = train_df
-  df_v = valid_df
   if label == 'label_2':
     df_t = train_df.dropna()
     df_v = valid_df.dropna()
@@ -64,17 +63,17 @@ for label in labels:
 
 from sklearn.decomposition import PCA
 
-# Instantiate PCA with a desired number of components 
+# Instantiate PCA with a desired number of components (e.g., n_components=50)
 pca = PCA(n_components=0.97)
 
 # Fit PCA on your training data
 x_train_pca = pca.fit_transform(x_train['label_1'])
 
-# Transform validation and test data using the same PCA model
+# Transform your validation and test data using the same PCA model
 x_valid_pca = pca.transform(x_valid['label_1'])
 x_test_pca = pca.transform(x_test['label_1'])  # If you have a test set
 
-
+# Now, you can use x_train_pca, x_valid_pca, and x_test_pca as your reduced-dimensional feature vectors for modeling.
 x_train_pca.shape
 
 import seaborn as sns
@@ -707,3 +706,158 @@ x_test_pca = pca.transform(x_test['label_4'])  # If you have a test set
 
 # Now, you can use x_train_pca, x_valid_pca, and x_test_pca as your reduced-dimensional feature vectors for modeling.
 x_train_pca.shape
+
+"""###KNN
+
+####Original
+"""
+
+from sklearn.neighbors import KNeighborsClassifier
+classifier = KNeighborsClassifier(n_neighbors=5)
+classifier.fit(x_train['label_4'], y_train['label_4'])
+
+y_pred = classifier.predict(x_valid['label_4'])
+
+from sklearn.metrics import classification_report, confusion_matrix
+print(confusion_matrix(y_valid['label_4'], y_pred))
+print(classification_report(y_valid['label_4'], y_pred))
+
+"""####After PCA"""
+
+from sklearn.neighbors import KNeighborsClassifier
+classifier = KNeighborsClassifier(n_neighbors=5)
+classifier.fit(x_train_pca, y_train['label_4'])
+
+y_pred = classifier.predict(x_valid_pca)
+
+from sklearn.metrics import classification_report, confusion_matrix
+print(confusion_matrix(y_valid['label_4'], y_pred))
+print(classification_report(y_valid['label_4'], y_pred))
+
+"""###SVM
+
+####Original
+"""
+
+from sklearn.svm import SVC
+from sklearn.experimental import enable_halving_search_cv
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV,HalvingGridSearchCV
+from sklearn.metrics import classification_report, accuracy_score
+from scipy.stats import uniform, randint
+
+svm_classifier = SVC(class_weight='balanced' ,C=1, kernel='rbf')
+svm_classifier.fit(x_train['label_4'], y_train['label_4'])
+
+# Make predictions on the test data
+y_pred = svm_classifier.predict(x_valid['label_4'])
+
+# Evaluate model performance
+print(classification_report(y_valid['label_4'], y_pred))
+
+"""####After PCA"""
+
+svm_classifier = SVC(class_weight='balanced' ,C=1, kernel='rbf')
+svm_classifier.fit(x_train_pca, y_train['label_4'])
+
+# Make predictions on the test data
+y_pred = svm_classifier.predict(x_valid_pca)
+
+# Evaluate model performance
+print(classification_report(y_valid['label_4'], y_pred))
+
+"""####After PCA + HP tuning"""
+
+svm_classifier = SVC(class_weight='balanced' ,C=100, degree=3, gamma='auto', kernel='poly') #0.9714673913043478
+# svm_classifier = SVC(class_weight='balanced' ,C=100, degree=4, kernel='rbf')  #0.9741847826086957
+svm_classifier.fit(x_train_pca, y_train['label_4'])
+
+# Make predictions on the test data
+y_pred = svm_classifier.predict(x_valid_pca)
+
+# Evaluate model performance
+print(accuracy_score(y_valid['label_4'], y_pred))
+
+from sklearn.svm import SVC
+from sklearn.metrics import classification_report
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+
+# Define the cross-validation strategy (e.g., StratifiedKFold with 5 folds)
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+# Define your SVM classifier with the desired hyperparameters
+svm_classifier = SVC(class_weight='balanced' ,C=100, degree=3, gamma='auto', kernel='poly')
+
+# Perform cross-validation and calculate accuracy scores
+scores = cross_val_score(svm_classifier, x_train_pca, y_train['label_4'], cv=cv, scoring='accuracy')
+
+# Print the cross-validation scores and mean accuracy
+print("Cross-validation scores:", scores)
+print("Mean accuracy:", scores.mean())
+
+from sklearn.svm import SVC
+from sklearn.metrics import classification_report
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+from scipy.stats import uniform
+
+# Define the hyperparameter grid
+param_grid = {
+    'C': list(np.random.uniform(0.001, 100, 10)),  # Adjust the range
+    'kernel': ['linear', 'rbf', 'poly', 'sigmoid'],  # Experiment with different kernels
+    # 'class_weight': ['balanced',None],  # Change class_weight options
+    # 'gamma':['scale', 'auto'],
+    'degree': [1,2,3,4]
+
+}
+
+# Create an SVM classifier
+svm_classifier = SVC(class_weight='balanced')
+
+# Perform grid search with cross-validation
+grid_search = HalvingGridSearchCV(svm_classifier, param_grid, scoring='accuracy', cv=5,n_jobs=-1, factor=2, verbose=1)
+grid_search.fit(x_train_pca, y_train['label_4'])
+
+# Get the best model and hyperparameters
+best_svm_classifier = grid_search.best_estimator_
+best_params = grid_search.best_params_
+
+# Make predictions on the validation set
+y_pred = best_svm_classifier.predict(x_valid_pca)
+
+# Evaluate the model
+print("Best Hyperparameters:", best_params)
+print("Classification Report on Validation Data:")
+print(classification_report(y_valid['label_4'], y_pred))
+
+print("Best Hyperparameters:", best_params)
+
+param_distributions = {
+    'C': [0.001,0.1,1,10,100],#uniform(0.001,100),  # Continuous uniform distribution for 'C'
+    'kernel': ['linear', 'rbf', 'poly', 'sigmoid'],  # Experiment with different kernels
+    # 'class_weight': ['balanced', None],  # Change class_weight options
+    # 'gamma':['scale', 'auto'],
+    'degree': [1,2,3,4]
+}
+
+# Create an SVM classifier
+svm_classifier = SVC()
+
+# Example with Randomized Search
+random_search = RandomizedSearchCV(svm_classifier, param_distributions, n_iter=10, cv=5, scoring='accuracy', random_state=42)
+random_search.fit(x_train_pca, y_train['label_4'])
+
+# Fit the RandomizedSearchCV on your training data
+random_search.fit(x_train['label_4'], y_train['label_4'])
+
+# Get the best hyperparameters and model
+best_svm_classifier = random_search.best_estimator_
+best_params = random_search.best_params_
+
+# Make predictions on the validation data
+y_pred = best_svm_classifier.predict(x_valid['label_4'])
+
+# Evaluate the model
+print("Best Hyperparameters:", best_params)
+print("Classification Report on Validation Data:")
+print(classification_report(y_valid['label_4'], y_pred))
+
+label_1_pred = svm_classifier.predict(x_test_pca)
