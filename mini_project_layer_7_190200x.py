@@ -44,11 +44,12 @@ x_valid ={}
 y_valid ={}
 x_test = {}
 
-df_t = train_df
-df_v = valid_df
+
 
 for label in labels:
   scaler = RobustScaler()
+  df_t = train_df
+  df_v = valid_df
   if label == 'label_2':
     df_t = train_df.dropna()
     df_v = valid_df.dropna()
