@@ -85,17 +85,17 @@ print("Mean accuracy:", mean_accuracy)
 
 from sklearn.decomposition import PCA
 
-# Instantiate PCA with a desired number of components (e.g., n_components=50)
+# Instantiate PCA with a desired number of components 
 pca = PCA(n_components=100)
 
 # Fit PCA on your training data
 x_train_pca = pca.fit_transform(x_train['label_1'])
 
-# Transform your validation and test data using the same PCA model
+# Transform  validation and test data using the same PCA model
 x_valid_pca = pca.transform(x_valid['label_1'])
 x_test_pca = pca.transform(x_test['label_1'])  # If you have a test set
 
-# Now, you can use x_train_pca, x_valid_pca, and x_test_pca as your reduced-dimensional feature vectors for modeling.
+
 x_train_pca.shape
 
 from sklearn.svm import SVC
